@@ -1,0 +1,708 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// =====================
+// ENUMS
+// =====================
+
+enum UserRole {
+  ADMIN
+  CASHIER
+  STAFF
+}
+
+enum BusinessSessionStatus {
+  OPEN
+  CLOSED
+  REOPENED
+}
+
+enum BillStatus {
+  OPEN
+  CREDIT
+  PAID
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CASH
+  TRANSFER
+}
+
+enum OrderRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum StockMovementType {
+  IN
+  OUT
+  ADJUST
+}
+
+enum StockMovementReason {
+  PURCHASE
+  SALE
+  ADJUSTMENT
+  COUNT
+  DAMAGE
+  BORROW
+  RETURN
+  OTHER
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  APPROVE
+  REJECT
+  PAYMENT
+  CLOSE_SESSION
+}
+
+enum PriceMode {
+  NORMAL
+  TOURNAMENT
+}
+
+// =====================
+// USER
+// =====================
+
+model User {
+  id String @id @default(cuid())
+
+  username String @unique
+
+  passwordHash String
+
+  pinHash String
+
+  displayName String
+
+  role UserRole
+
+  isActive Boolean @default(true)
+
+  lastLoginAt DateTime?
+
+  sessions UserSession[]
+
+  createdBills Bill[] @relation("CreatedBills")
+
+  addedBillItems BillItem[] @relation("AddedBillItems")
+
+  receivedPayments Payment[] @relation("ReceivedPayments")
+
+  updatedSystemSettings SystemSetting[] @relation("UpdatedSystemSettings")
+
+  openedBusinessSessions BusinessSession[] @relation("OpenedBusinessSessions")
+
+  closedBusinessSessions BusinessSession[] @relation("ClosedBusinessSessions")
+
+  requestedOrderRequests OrderRequest[] @relation("RequestedOrderRequests")
+
+  approvedOrderRequests OrderRequest[] @relation("ApprovedOrderRequests")
+
+  createdExpenses Expense[] @relation("CreatedExpenses")
+
+  auditLogs AuditLog[] @relation("UserAuditLogs")
+
+  stockAdjustments Stock[] @relation("StockAdjustments")
+
+  stockMovements StockMovement[] @relation("StockMovements")
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+}
+
+// =====================
+// USER SESSION
+// =====================
+
+model UserSession {
+  id String @id @default(cuid())
+
+  userId String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  loginAt DateTime @default(now())
+
+  logoutAt DateTime?
+
+  isOnline Boolean @default(true)
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([isOnline])
+}
+
+// =====================
+// SYSTEM SETTING
+// =====================
+
+model SystemSetting {
+  id String @id @default(cuid())
+
+  key String @unique
+
+  value String
+
+  description String?
+
+  updatedByUserId String?
+
+  updatedBy User? @relation("UpdatedSystemSettings", fields: [updatedByUserId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  updatedAt DateTime @updatedAt
+
+  @@index([updatedByUserId])
+}
+
+// =====================
+// BUSINESS SESSION
+// =====================
+
+model BusinessSession {
+  id String @id @default(cuid())
+
+  businessDate DateTime
+
+  openedAt DateTime
+
+  closedAt DateTime?
+
+  status BusinessSessionStatus
+
+  openedByUserId String
+
+  closedByUserId String?
+
+  openedBy User @relation("OpenedBusinessSessions", fields: [openedByUserId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  closedBy User? @relation("ClosedBusinessSessions", fields: [closedByUserId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  bills Bill[]
+
+  expenses Expense[]
+
+  dailyClosingSnapshot DailyClosingSnapshot?
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  @@index([businessDate])
+  @@index([status])
+}
+
+// =====================
+// CATEGORY
+// =====================
+
+model Category {
+  id String @id @default(cuid())
+
+  name String @unique
+
+  icon String?
+
+  color String?
+
+  sortOrder Int @default(0)
+
+  isActive Boolean @default(true)
+
+  products Product[]
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive, sortOrder])
+}
+
+// =====================
+// PRODUCT
+// =====================
+
+model Product {
+  id String @id @default(cuid())
+
+  categoryId String
+
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  name String
+
+  normalPrice Decimal @db.Decimal(10, 2)
+
+  tournamentPrice Decimal? @db.Decimal(10, 2)
+
+  allowMixer Boolean @default(false)
+
+  isActive Boolean @default(true)
+
+  availableMixers ProductMixer[] @relation("ProductMixers")
+
+  usedAsMixer ProductMixer[] @relation("MixerProducts")
+
+  billItems BillItem[]
+
+  stock Stock?
+
+  stockMovements StockMovement[]
+
+  orderRequestItems OrderRequestItem[]
+
+  billItemBaseMixers BillItemMixer[] @relation("BillItemBaseProduct")
+
+  billItemMixers BillItemMixer[] @relation("BillItemMixerProduct")
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  @@index([categoryId, isActive])
+  @@index([name])
+}
+
+// =====================
+// PRODUCT MIXER
+// =====================
+
+model ProductMixer {
+  id String @id @default(cuid())
+
+  productId String
+
+  mixerProductId String
+
+  product Product @relation("ProductMixers", fields: [productId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  mixerProduct Product @relation("MixerProducts", fields: [mixerProductId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([productId, mixerProductId])
+  @@index([productId])
+  @@index([mixerProductId])
+}
+
+// =====================
+// BILL
+// =====================
+
+model Bill {
+  id String @id @default(cuid())
+
+  billNumber String @unique
+
+  billName String
+
+  subtotal Decimal @db.Decimal(10, 2)
+
+  totalAmount Decimal @db.Decimal(10, 2)
+
+  status BillStatus
+
+  openedAt DateTime @default(now())
+
+  closedAt DateTime?
+
+  createdByUserId String
+
+  businessSessionId String
+
+  createdBy User @relation("CreatedBills", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  businessSession BusinessSession @relation(fields: [businessSessionId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  items BillItem[]
+
+  payments Payment[]
+
+  orderRequests OrderRequest[]
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  @@index([businessSessionId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// =====================
+// BILL ITEM
+// =====================
+
+model BillItem {
+  id String @id @default(cuid())
+
+  billId String
+
+  productId String
+
+  productName String
+
+  qty Int
+
+  unitPrice Decimal @db.Decimal(10, 2)
+
+  lineTotal Decimal @db.Decimal(10, 2)
+
+  isStaffDrink Boolean @default(false)
+
+  staffDrinkFee Decimal? @db.Decimal(10, 2)
+
+  staffDrinkRecipient String?
+
+  addedByUserId String
+
+  bill Bill @relation(fields: [billId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  mixers BillItemMixer[]
+
+  addedBy User @relation("AddedBillItems", fields: [addedByUserId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  @@index([billId])
+  @@index([productId])
+  @@index([addedByUserId])
+}
+
+// =====================
+// BILL ITEM MIXER
+// =====================
+
+model BillItemMixer {
+  id String @id @default(cuid())
+
+  billItemId String
+
+  productId String
+
+  mixerProductId String
+
+  mixerName String
+
+  product Product @relation("BillItemBaseProduct", fields: [productId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  mixerProduct Product @relation("BillItemMixerProduct", fields: [mixerProductId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  billItem BillItem @relation(fields: [billItemId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([billItemId])
+  @@index([mixerProductId])
+  @@index([productId])
+}
+
+// =====================
+// PAYMENT
+// =====================
+
+model Payment {
+  id String @id @default(cuid())
+
+  billId String
+
+  paymentMethod PaymentMethod
+
+  amount Decimal @db.Decimal(10, 2)
+
+  receivedAmount Decimal? @db.Decimal(10, 2)
+
+  changeAmount Decimal? @db.Decimal(10, 2)
+
+  paymentNote String?
+
+  paidAt DateTime @default(now())
+
+  receivedByUserId String
+
+  bill Bill @relation(fields: [billId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  receivedBy User @relation("ReceivedPayments", fields: [receivedByUserId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([billId])
+  @@index([receivedByUserId])
+  @@index([paymentMethod])
+}
+
+// =====================
+// STOCK
+// =====================
+
+model Stock {
+  id String @id @default(cuid())
+
+  productId String
+
+  currentQty Int @default(0)
+
+  minimumQty Int @default(0)
+
+  lastAdjustedAt DateTime?
+
+  updatedByUserId String?
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  updatedBy User? @relation("StockAdjustments", fields: [updatedByUserId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  movements StockMovement[]
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  @@unique([productId])
+  @@index([updatedByUserId])
+}
+
+// =====================
+// STOCK MOVEMENT
+// =====================
+
+model StockMovement {
+  id String @id @default(cuid())
+
+  stockId String
+
+  productId String
+
+  userId String?
+
+  movementType StockMovementType
+
+  reason StockMovementReason
+
+  quantity Int
+
+  beforeQty Int
+
+  afterQty Int
+
+  referenceType String?
+
+  referenceId String?
+
+  note String?
+
+  stock Stock @relation(fields: [stockId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  user User? @relation("StockMovements", fields: [userId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([stockId])
+  @@index([productId])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model OrderRequest {
+  id String @id @default(cuid())
+
+  billId String
+
+  requestedByUserId String
+
+  approvedByUserId String?
+
+  status OrderRequestStatus
+
+  note String?
+
+  approvedAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  bill Bill @relation(fields: [billId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  requestedBy User @relation("RequestedOrderRequests", fields: [requestedByUserId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  approvedBy User? @relation("ApprovedOrderRequests", fields: [approvedByUserId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  items OrderRequestItem[]
+
+  @@index([billId])
+  @@index([requestedByUserId])
+  @@index([approvedByUserId])
+  @@index([status])
+}
+
+model OrderRequestItem {
+  id String @id @default(cuid())
+
+  orderRequestId String
+
+  productId String
+
+  productName String
+
+  quantity Int
+
+  note String?
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  orderRequest OrderRequest @relation(fields: [orderRequestId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([orderRequestId])
+  @@index([productId])
+}
+
+model ExpenseCategory {
+  id String @id @default(cuid())
+
+  name String
+
+  icon String
+
+  color String
+
+  isFavorite Boolean @default(false)
+
+  sortOrder Int @default(0)
+
+  isActive Boolean @default(true)
+
+  expenses Expense[]
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  @@unique([name])
+  @@index([isActive])
+  @@index([sortOrder])
+}
+
+model Expense {
+  id String @id @default(cuid())
+
+  expenseCategoryId String
+
+  businessSessionId String
+
+  amount Decimal @db.Decimal(10, 2)
+
+  note String?
+
+  paidTo String?
+
+  expenseDate DateTime
+
+  createdByUserId String
+
+  expenseCategory ExpenseCategory @relation(fields: [expenseCategoryId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  businessSession BusinessSession @relation(fields: [businessSessionId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  createdBy User @relation("CreatedExpenses", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  @@index([expenseCategoryId])
+  @@index([businessSessionId])
+  @@index([createdByUserId])
+  @@index([expenseDate])
+}
+
+model DailyClosingSnapshot {
+  id String @id @default(cuid())
+
+  businessSessionId String
+
+  totalBills Int
+
+  totalSales Decimal @db.Decimal(10, 2)
+
+  cashAmount Decimal @db.Decimal(10, 2)
+
+  transferAmount Decimal @db.Decimal(10, 2)
+
+  totalExpense Decimal @db.Decimal(10, 2)
+
+  staffDrinkAmount Decimal @db.Decimal(10, 2)
+
+  netCashRemaining Decimal @db.Decimal(10, 2)
+
+  businessSession BusinessSession @relation(fields: [businessSessionId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  @@unique([businessSessionId])
+  @@index([createdAt])
+}
+
+model AuditLog {
+  id String @id @default(cuid())
+
+  userId String?
+
+  action AuditAction
+
+  entityType String
+
+  entityId String
+
+  targetName String
+
+  description String
+
+  oldValue Json?
+
+  newValue Json?
+
+  ipAddress String?
+
+  deviceInfo String?
+
+  sessionId String?
+
+  user User? @relation("UserAuditLogs", fields: [userId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+}

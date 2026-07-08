@@ -1,0 +1,126 @@
+Lock Duclpicate
+
+Enum 1: UserRole
+enum UserRole {
+  ADMIN
+  CASHIER
+  STAFF
+}
+//ADMIN
+= เจ้าของ / ผู้ดูแลระบบ
+
+CASHIER
+= คนคิดเงิน
+
+STAFF
+= พนักงานรับ Order
+
+Enum 2: BusinessSessionStatus
+enum BusinessSessionStatus {
+  OPEN
+  CLOSED
+  REOPENED
+}
+//OPEN
+= ร้านกำลังขายในรอบนี้
+
+CLOSED
+= ปิดยอดแล้ว
+
+REOPENED
+= เปิดกลับมาแก้ไข
+
+Enum 3: BillStatus
+enum BillStatus {
+  OPEN
+  CREDIT
+  PAID
+  CANCELLED
+}
+//OPEN
+= เปิดบิลอยู่
+
+PAID
+= ชำระแล้ว
+
+CANCELLED
+= ยกเลิก
+
+CREDIT
+= ค้างชำระ / ยังชำระไม่ครบ
+
+Enum 4: PaymentMethod
+enum PaymentMethod {
+  CASH
+  TRANSFER
+}
+//CASH
+= เงินสด
+
+TRANSFER
+= เงินโอน
+
+Enum 5: OrderRequestStatus
+enum OrderRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+//PENDING
+= รอ Cashier
+
+APPROVED
+= รับ Order แล้ว
+
+REJECTED
+= ไม่รับ
+
+Enum 6: StockMovementType
+enum StockMovementType {
+  IN
+  OUT
+  ADJUST
+}
+//IN
+= เพิ่ม Stock
+
+OUT
+= ขาย / ลด
+
+ADJUST
+= ปรับแก้
+
+Enum 7: AuditAction
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  APPROVE
+  REJECT
+  PAYMENT
+  CLOSE_SESSION
+}
+
+Enum 8: PriceMode
+enum PriceMode {
+  NORMAL
+  TOURNAMENT
+}
+enum StockMovementReason {
+  PURCHASE
+  SALE
+  ADJUSTMENT
+  COUNT
+  DAMAGE
+  BORROW
+  RETURN
+  OTHER
+}
+
+
+
+
+
+
