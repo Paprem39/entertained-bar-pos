@@ -247,7 +247,7 @@ model Product {
 
   category Category @relation(fields: [categoryId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
-  name String
+  name String @unique
 
   normalPrice Decimal @db.Decimal(10, 2)
 
@@ -380,12 +380,15 @@ model BillItem {
 
   mixers BillItemMixer[]
 
+  mixerSignature String @default("")
+
   addedBy User @relation("AddedBillItems", fields: [addedByUserId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
   createdAt DateTime @default(now())
 
   updatedAt DateTime @updatedAt
 
+  @@unique([billId, productId, mixerSignature])
   @@index([billId])
   @@index([productId])
   @@index([addedByUserId])
