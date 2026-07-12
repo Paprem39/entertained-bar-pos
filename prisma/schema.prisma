@@ -67,6 +67,7 @@ enum AuditAction {
   REJECT
   PAYMENT
   CLOSE_SESSION
+  MARK_CREDIT
 }
 
 enum PriceMode {
@@ -342,10 +343,10 @@ model Bill {
 
   updatedAt DateTime @updatedAt
 
+  @@unique([businessSessionId, billNumber])
   @@index([businessSessionId])
   @@index([status])
   @@index([createdAt])
-  @@unique([businessSessionId, billNumber])
 }
 
 // =====================
