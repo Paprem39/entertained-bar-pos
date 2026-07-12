@@ -310,7 +310,7 @@ model ProductMixer {
 model Bill {
   id String @id @default(cuid())
 
-  billNumber String @unique
+  billNumber String
 
   billName String
 
@@ -345,6 +345,7 @@ model Bill {
   @@index([businessSessionId])
   @@index([status])
   @@index([createdAt])
+  @@unique([businessSessionId, billNumber])
 }
 
 // =====================

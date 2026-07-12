@@ -1,0 +1,9 @@
+POST http://localhost:3000/api/payments
+Content-Type: application/json
+
+{
+  "billId": "cmribuz6i000110vifhcgwxp3",
+  "paymentMethod": "CASH",
+  "receivedAmount": 500,
+  "receivedByUserId": "cmrcpmjaa000178viat9qd51j"
+}

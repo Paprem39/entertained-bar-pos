@@ -3,28 +3,19 @@ import { Prisma } from "@prisma/client";
 
 
 interface CreateBillInput {
-
   billName: string;
-
   createdByUserId: string;
-
   businessSessionId: string;
-
 }
 
 
 interface AddItemToBillInput {
-
   billId: string;
-
   productId: string;
-
+  qty: number;
   mixerProductIds: string[];
-
   addedByUserId: string;
-
 }
-
 
 
 function generateBillNumber(
@@ -32,19 +23,15 @@ function generateBillNumber(
   runningNumber: number
 ) {
 
-  const year =
-    date.getFullYear();
-
+  const year = date.getFullYear();
 
   const month =
     String(date.getMonth() + 1)
       .padStart(2, "0");
 
-
   const day =
     String(date.getDate())
       .padStart(2, "0");
-
 
   const running =
     String(runningNumber)
@@ -52,9 +39,7 @@ function generateBillNumber(
 
 
   return `${year}${month}${day}-${running}`;
-
 }
-
 
 
 
@@ -62,76 +47,85 @@ function generateMixerSignature(
   mixerProductIds: string[]
 ) {
 
+  if(mixerProductIds.length === 0){
+    return "";
+  }
+
+
   return [...mixerProductIds]
     .sort()
     .join("|");
 
 }
 
-
-
-
-
 async function getNextBillNumber(
   businessSessionId: string
 ) {
 
-  const count =
-    await prisma.bill.count({
+  const lastBill =
+    await prisma.bill.findFirst({
 
       where: {
         businessSessionId,
       },
 
+      orderBy: {
+        billNumber: "desc",
+      },
+
+      select: {
+        billNumber: true,
+      },
+
     });
 
+  if (!lastBill) {
+    return 1;
+  }
 
-  return count + 1;
+  const runningNumber =
+    Number(
+      lastBill.billNumber.split("-")[1]
+    );
+
+  return runningNumber + 1;
 
 }
 
 
 
-
-
 async function updateBillTotal(
   tx: Prisma.TransactionClient,
-  billId: string
-) {
-
+  billId:string
+){
 
   const result =
     await tx.billItem.aggregate({
 
-      where: {
+      where:{
         billId,
       },
 
-      _sum: {
-        lineTotal: true,
+      _sum:{
+        lineTotal:true,
       },
 
     });
-
 
 
   const total =
     result._sum.lineTotal ?? 0;
 
 
-
   await tx.bill.update({
 
-    where: {
-      id: billId,
+    where:{
+      id:billId,
     },
 
-    data: {
-
-      subtotal: total,
-
-      totalAmount: total,
-
+    data:{
+      subtotal:total,
+      totalAmount:total,
     },
 
   });
@@ -141,14 +135,83 @@ async function updateBillTotal(
 
 
 
-
 export async function createBill(
-  input: CreateBillInput
-) {
+  input:CreateBillInput
+){
 
 
-  const now =
-    new Date();
+  const session =
+  await prisma.businessSession.findUnique({
+
+    where:{
+      id:input.businessSessionId,
+    },
+
+    select:{
+      status:true,
+      businessDate:true,
+    },
+
+  });
+
+
+
+  if(!session){
+    throw new Error(
+      "Business session not found"
+    );
+  }
+
+
+
+  if(session.status !== "OPEN"){
+    throw new Error(
+      "Business session is closed"
+    );
+  }
+
+
+
+
+  const user =
+    await prisma.user.findUnique({
+
+      where:{
+        id:input.createdByUserId,
+      },
+
+      select:{
+        id:true,
+        isActive:true,
+        role:true,
+      },
+
+    });
+
+
+
+  if(!user){
+    throw new Error(
+      "User not found"
+    );
+  }
+
+
+
+  if(!user.isActive){
+    throw new Error(
+      "User is inactive"
+    );
+  }
+
+
+
+  if(user.role === "STAFF"){
+    throw new Error(
+      "Staff cannot create bill"
+    );
+  }
+
 
 
 
@@ -159,37 +222,31 @@ export async function createBill(
 
 
 
-  const billNumber =
+    const billNumber =
     generateBillNumber(
-      now,
-      runningNumber
+        session.businessDate,
+        runningNumber
     );
 
 
 
   return await prisma.bill.create({
 
-    data: {
+    data:{
 
       billNumber,
-
 
       billName:
         input.billName,
 
+      subtotal:0,
 
-      subtotal: 0,
+      totalAmount:0,
 
-
-      totalAmount: 0,
-
-
-      status: "OPEN",
-
+      status:"OPEN",
 
       createdByUserId:
         input.createdByUserId,
-
 
       businessSessionId:
         input.businessSessionId,
@@ -205,50 +262,114 @@ export async function createBill(
 
 
 export async function addItemToBill(
-  input: AddItemToBillInput
-) {
+  input:AddItemToBillInput
+){
+
+
+  if(input.qty <= 0){
+    throw new Error(
+      "Quantity must be greater than zero"
+    );
+  }
+
 
 
   return await prisma.$transaction(
-    async (tx) => {
+    async(tx)=>{
 
 
+      const bill =
+  await tx.bill.findUnique({
+
+    where: {
+      id: input.billId,
+    },
+
+    select: {
+
+      status: true,
+
+      businessSession: {
+
+        select: {
+          status: true,
+        },
+
+      },
+
+    },
+
+  });
+
+
+
+      if(!bill){
+        throw new Error(
+          "Bill not found"
+        );
+      }
+
+
+
+      if(bill.status !== "OPEN"){
+        throw new Error(
+          "Bill is not open"
+        );
+      }
+
+      if (bill.businessSession.status !== "OPEN") {
+
+        throw new Error(
+          "Business session is closed"
+        );
+      
+      }
 
       const product =
         await tx.product.findUnique({
 
-          where: {
-            id: input.productId,
+          where:{
+            id:input.productId,
+          },
+
+          include:{
+
+            availableMixers:{
+
+              include:{
+
+                mixerProduct:{
+                  select:{
+                    id:true,
+                    name:true,
+                  },
+                },
+
+              },
+
+            },
+
           },
 
         });
 
 
 
-
-      if (!product) {
-
+      if(!product){
         throw new Error(
           "Product not found"
         );
-
       }
 
 
 
+      if(!product.isActive){
+        throw new Error(
+          "Product is inactive"
+        );
+      }
 
 
-
-      /*
-        สำคัญ:
-        Mixer ทุกชุดต้องมี Signature เดียวกัน
-
-        Soda + Water
-
-        Water + Soda
-
-        ต้องได้ค่าเดียวกัน
-      */
 
 
       const mixerSignature =
@@ -258,34 +379,59 @@ export async function addItemToBill(
 
 
 
+      if(input.mixerProductIds.length > 0){
+
+
+        if(!product.allowMixer){
+
+          throw new Error(
+            "This product does not support mixer"
+          );
+
+        }
 
 
 
-      const mixers =
-        mixerSignature
-
-          ? await tx.product.findMany({
-
-              where: {
-
-                id: {
-                  in:
-                    mixerSignature.split("|"),
-                },
-
-              },
-
-              orderBy: {
-
-                id: "asc",
-
-              },
-
-            })
-
-          : [];
+        const allowedMixerIds =
+          product.availableMixers.map(
+            (item)=>
+              item.mixerProductId
+          );
 
 
+
+        const invalidMixers =
+          input.mixerProductIds.filter(
+            id =>
+              !allowedMixerIds.includes(id)
+          );
+
+
+
+        if(invalidMixers.length > 0){
+
+          throw new Error(
+            "Invalid mixer selected"
+          );
+
+        }
+
+      }
+
+
+
+
+
+      const selectedMixers =
+        product.availableMixers
+          .filter(item =>
+            input.mixerProductIds.includes(
+              item.mixerProduct.id
+            )
+          )
+          .map(item =>
+            item.mixerProduct
+          );
 
 
 
@@ -294,15 +440,13 @@ export async function addItemToBill(
       const existingItem =
         await tx.billItem.findFirst({
 
-          where: {
+          where:{
 
             billId:
               input.billId,
 
-
             productId:
               input.productId,
-
 
             mixerSignature,
 
@@ -314,45 +458,37 @@ export async function addItemToBill(
 
 
 
+      const lineTotal =
+        product.normalPrice.mul(
+          input.qty
+        );
 
 
 
-      if (existingItem) {
+
+      if(existingItem){
 
 
-
-        const updatedItem =
+        const updated =
           await tx.billItem.update({
 
-            where: {
-
-              id:
-                existingItem.id,
-
+            where:{
+              id:existingItem.id,
             },
 
+            data:{
 
-            data: {
-
-              qty: {
-
-                increment: 1,
-
+              qty:{
+                increment:input.qty,
               },
 
-
-              lineTotal: {
-
-                increment:
-                  product.normalPrice,
-
+              lineTotal:{
+                increment:lineTotal,
               },
 
             },
 
           });
-
-
 
 
 
@@ -363,12 +499,9 @@ export async function addItemToBill(
 
 
 
-        return updatedItem;
+        return updated;
 
       }
-
-
-
 
 
 
@@ -378,40 +511,29 @@ export async function addItemToBill(
       const billItem =
         await tx.billItem.create({
 
-          data: {
-
+          data:{
 
             billId:
               input.billId,
 
-
             productId:
               product.id,
-
 
             productName:
               product.name,
 
-
-            qty: 1,
-
+            qty:
+              input.qty,
 
             unitPrice:
               product.normalPrice,
 
-
-            lineTotal:
-              product.normalPrice,
-
-
+            lineTotal,
 
             mixerSignature,
 
-
-
             addedByUserId:
               input.addedByUserId,
-
 
           },
 
@@ -421,47 +543,33 @@ export async function addItemToBill(
 
 
 
-
-
-
-
-
-      if (mixers.length > 0) {
+      if(selectedMixers.length > 0){
 
 
         await tx.billItemMixer.createMany({
 
           data:
 
-            mixers.map((mixer) => ({
-
+            selectedMixers.map(mixer=>({
 
               billItemId:
                 billItem.id,
 
-
               productId:
                 product.id,
-
 
               mixerProductId:
                 mixer.id,
 
-
               mixerName:
                 mixer.name,
 
-
             })),
-
 
         });
 
 
       }
-
-
-
 
 
 
@@ -474,14 +582,43 @@ export async function addItemToBill(
 
 
 
-
-
       return billItem;
 
 
     }
-
   );
 
+}
+
+
+
+
+
+export async function getBills(){
+
+
+  return await prisma.bill.findMany({
+
+    orderBy:{
+      createdAt:"desc",
+    },
+
+
+    include:{
+
+      items:{
+
+        include:{
+          mixers:true,
+        },
+
+      },
+
+
+      payments:true,
+
+    },
+
+  });
 
 }

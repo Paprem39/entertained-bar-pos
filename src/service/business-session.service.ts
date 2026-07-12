@@ -47,23 +47,25 @@ export async function openBusinessSession(
         // สร้าง Business Session
         // =====================
   
+        const now = new Date();
+
         const session =
           await tx.businessSession.create({
-  
+
             data: {
-  
-              businessDate: new Date(),
-  
-              openedAt: new Date(),
-  
-              status: "OPEN",
-  
-              openedByUserId:
-                input.openedByUserId,
-  
-            },
-  
-          });
+
+            businessDate: now,
+
+            openedAt: now,
+
+            status: "OPEN",
+
+          openedByUserId:
+            input.openedByUserId,
+
+          },
+
+        });
   
         // =====================
         // Audit Log

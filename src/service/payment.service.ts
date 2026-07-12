@@ -22,12 +22,16 @@ export async function receivePayment(
   
         const bill =
           await tx.bill.findUnique({
-  
+
             where: {
               id: input.billId,
             },
-  
-          });
+
+        include: {
+          businessSession: true,
+        },
+
+      });
   
   
         if (!bill) {
@@ -45,6 +49,58 @@ export async function receivePayment(
           );
   
         }
+
+        if (bill.businessSession.status !== "OPEN") {
+
+          throw new Error(
+            "Business session is closed"
+          );
+        
+        }
+
+        const user =
+  await tx.user.findUnique({
+
+    where: {
+      id: input.receivedByUserId,
+    },
+
+    select: {
+
+      id: true,
+
+      isActive: true,
+
+      role: true,
+
+    },
+
+  });
+
+          if (!user) {
+
+            throw new Error(
+              "User not found"
+            );
+
+          }
+
+          if (!user.isActive) {
+
+            throw new Error(
+              "User is inactive"
+            );
+
+          }
+
+          if (user.role === "STAFF") {
+
+            throw new Error(
+              "Staff cannot receive payment"
+            );
+
+          }
+
         const itemCount =
             await tx.billItem.count({
 
@@ -56,6 +112,14 @@ export async function receivePayment(
         if (itemCount === 0) {
         throw new Error("Bill has no items");
 
+        }
+
+        if (bill.totalAmount.lessThanOrEqualTo(0)) {
+
+          throw new Error(
+            "Bill total amount must be greater than zero"
+          );
+        
         }
 
         let receivedAmount: Prisma.Decimal | null = null;
