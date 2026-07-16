@@ -2,8 +2,7 @@ import { cancelOrderRequest } from "@/service/order-request.service";
 
 async function main() {
   const result = await cancelOrderRequest({
-    orderRequestId: "cmrmsy8g90000dgvij2fyuvpo",
-
+    orderRequestId: "cmrmsnba40000twvi8mf1xdbb",
     requestedByUserId: "cmrcpmjfx000278vih39wb24c",
   });
 

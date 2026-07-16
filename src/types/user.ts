@@ -1,9 +1,13 @@
-export type UserRole = "ADMIN" | "CASHIER" | "STAFF";
+export type UserRole =
+  | "ADMIN"
+  | "CASHIER"
+  | "STAFF";
+
 
 export interface LoginUser {
   id: string;
-  name: string;
+  username: string;
+  displayName: string;
   role: UserRole;
-  avatar?: string;
   isActive: boolean;
 }

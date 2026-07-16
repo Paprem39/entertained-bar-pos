@@ -190,6 +190,8 @@ model BusinessSession {
 
   status BusinessSessionStatus
 
+  priceMode PriceMode @default(NORMAL)
+
   openedByUserId String
 
   closedByUserId String?
