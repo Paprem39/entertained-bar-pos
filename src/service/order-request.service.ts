@@ -16,6 +16,7 @@ import { updateBillTotal } from "@/utils/order-request/update-bill-total";
 import { rejectValidation } from "@/utils/order-request/reject-validation";
 import { CancelOrderRequestInput } from "@/types/order-request";
 import { cancelValidation } from "@/utils/order-request/cancel-validation";
+import { decreaseStock } from "@/service/stock.service";
 
 export async function createOrderRequest(
     input: CreateOrderRequestInput,
@@ -129,6 +130,24 @@ export async function createOrderRequest(
         orderRequestId: input.orderRequestId,
         approvedByUserId: input.approvedByUserId,
       });
+
+      const businessSession =
+  await tx.businessSession.findUnique({
+
+    where: {
+      id: orderRequest.bill.businessSessionId,
+    },
+
+  });
+
+
+if (!businessSession) {
+
+  throw new Error(
+    "Business session not found"
+  );
+
+}
   
       // ============================
       // Move OrderRequest -> Bill
@@ -136,8 +155,10 @@ export async function createOrderRequest(
   
       for (const item of orderRequest.items) {
   
-        const price = item.product.tournamentPrice ??
-          item.product.normalPrice;
+        const price =
+      businessSession.priceMode === "TOURNAMENT"
+    ? item.product.tournamentPrice ?? item.product.normalPrice
+    : item.product.normalPrice;
   
         const merged = await mergeBillItem({
           prisma: tx,
@@ -205,6 +226,24 @@ export async function createOrderRequest(
         prisma: tx,
         billId: orderRequest.billId,
       });
+
+      // ============================
+// Decrease Stock
+// ============================
+
+for (const item of orderRequest.items) {
+  await decreaseStock(
+    {
+      productId: item.productId,
+      quantity: item.quantity,
+      reason: "SALE",
+      userId: user.id,
+      referenceType: "OrderRequest",
+      referenceId: orderRequest.id,
+    },
+    tx,
+  );
+}
   
       // ============================
       // Approve Order Request

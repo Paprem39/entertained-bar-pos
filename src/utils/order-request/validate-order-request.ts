@@ -36,20 +36,6 @@ export async function validateOrderRequest({
   }
 
   // ============================
-  // Business Session
-  // ============================
-
-  const session = await prisma.businessSession.findFirst({
-    where: {
-      status: "OPEN",
-    },
-  });
-
-  if (!session) {
-    throw new Error("Business session is not open.");
-  }
-
-  // ============================
   // Bill
   // ============================
 
@@ -67,8 +53,18 @@ export async function validateOrderRequest({
     throw new Error("Bill is not open.");
   }
 
-  if (bill.businessSessionId !== session.id) {
-    throw new Error("Bill does not belong to current business session.");
+  // ============================
+  // Business Session
+  // ============================
+
+  const session = await prisma.businessSession.findFirst({
+    where: {
+      status: "OPEN",
+    },
+  });
+
+  if (!session) {
+    throw new Error("Business session is not open.");
   }
 
   // ============================

@@ -1,6 +1,5 @@
 import { prisma } from "@/lib/prisma";
 
-
 interface ReceiveCreditPaymentInput {
 
   billId: string;
@@ -16,8 +15,6 @@ interface ReceiveCreditPaymentInput {
   paymentNote?: string;
 
 }
-
-
 
 export async function receiveCreditPayment(
   input: ReceiveCreditPaymentInput
@@ -41,7 +38,8 @@ export async function receiveCreditPayment(
           include: {
             businessSession: true,
             payments: true,
-          },
+            items: true,
+          }
 
         });
 
@@ -231,8 +229,6 @@ export async function receiveCreditPayment(
           },
 
         });
-
-
 
       // =====================
       // Audit Log

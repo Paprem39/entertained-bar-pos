@@ -7,6 +7,25 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
 
+    if (
+      !body.businessSessionId ||
+      !body.expenseCategoryId ||
+      !body.amount ||
+      !body.createdByUserId
+    ) {
+    
+      return NextResponse.json(
+        {
+          message:
+            "businessSessionId, expenseCategoryId, amount and createdByUserId are required",
+        },
+        {
+          status:400,
+        }
+      );
+    
+    }
+
     const result = await createExpense({
       businessSessionId: body.businessSessionId,
       expenseCategoryId: body.expenseCategoryId,

@@ -11,15 +11,36 @@ export async function POST(
 
     const body = await request.json();
 
+
+    // เพิ่มตรงนี้
+    if (
+      !body.productId ||
+      !body.qty ||
+      !body.addedByUserId
+    ) {
+      return NextResponse.json(
+        {
+          message:
+            "Missing required fields: productId, qty, addedByUserId",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+
     const result = await addItemToBill({
       billId,
       productId: body.productId,
       qty: body.qty,
-      mixerProductIds: body.mixerProductIds,
+      mixerProductIds: body.mixerProductIds ?? [],
       addedByUserId: body.addedByUserId,
     });
 
+
     return NextResponse.json(result);
+
 
   } catch (error) {
 

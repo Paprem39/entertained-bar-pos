@@ -1,7 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
-
 interface ReceivePaymentInput {
 
   billId: string;
@@ -15,8 +14,6 @@ interface ReceivePaymentInput {
   receivedByUserId: string;
 
 }
-
-
 
 export async function receivePayment(
   input: ReceivePaymentInput
@@ -44,8 +41,6 @@ export async function receivePayment(
 
         });
 
-
-
       if (!bill) {
 
         throw new Error(
@@ -53,8 +48,6 @@ export async function receivePayment(
         );
 
       }
-
-
 
       if (bill.status !== "OPEN") {
 
@@ -64,8 +57,6 @@ export async function receivePayment(
 
       }
 
-
-
       if (bill.businessSession.status !== "OPEN") {
 
         throw new Error(
@@ -73,8 +64,6 @@ export async function receivePayment(
         );
 
       }
-
-
 
       const user =
         await tx.user.findUnique({
@@ -95,8 +84,6 @@ export async function receivePayment(
 
         });
 
-
-
       if (!user) {
 
         throw new Error(
@@ -104,8 +91,6 @@ export async function receivePayment(
         );
 
       }
-
-
 
       if (!user.isActive) {
 
@@ -115,8 +100,6 @@ export async function receivePayment(
 
       }
 
-
-
       if (user.role === "STAFF") {
 
         throw new Error(
@@ -124,8 +107,6 @@ export async function receivePayment(
         );
 
       }
-
-
 
       const itemCount =
         await tx.billItem.count({
@@ -149,7 +130,6 @@ export async function receivePayment(
       }
 
 
-
       if (bill.totalAmount.lessThanOrEqualTo(0)) {
 
         throw new Error(
@@ -158,17 +138,12 @@ export async function receivePayment(
 
       }
 
-
-
       let receivedAmount:
         Prisma.Decimal | null = null;
 
 
       let changeAmount:
         Prisma.Decimal | null = null;
-
-
-
 
       if (input.paymentMethod === "CASH") {
 
@@ -180,8 +155,6 @@ export async function receivePayment(
           );
 
         }
-
-
 
         receivedAmount =
           new Prisma.Decimal(
@@ -202,14 +175,10 @@ export async function receivePayment(
 
         }
 
-
-
         changeAmount =
           receivedAmount.minus(
             bill.totalAmount
           );
-
-
 
       }
       else if (
@@ -223,9 +192,6 @@ export async function receivePayment(
 
 
       }
-
-
-
 
       const payment =
         await tx.payment.create({
@@ -255,11 +221,6 @@ export async function receivePayment(
 
         });
 
-
-
-
-
-
       await tx.bill.update({
 
         where: {
@@ -279,140 +240,6 @@ export async function receivePayment(
         },
 
       });
-
-
-
-
-
-
-
-
-      // =====================
-      // STOCK OUT AFTER PAYMENT
-      // =====================
-
-
-      for (const item of bill.items) {
-
-
-        let stock =
-          await tx.stock.findUnique({
-
-            where: {
-
-              productId:
-                item.productId,
-
-            },
-
-          });
-
-
-
-
-        if (!stock) {
-
-
-          stock =
-            await tx.stock.create({
-
-              data: {
-
-                productId:
-                  item.productId,
-
-                currentQty:
-                  0,
-
-              },
-
-            });
-
-
-        }
-
-
-
-
-
-        const beforeQty =
-          stock.currentQty;
-
-
-
-        const afterQty =
-          beforeQty - item.qty;
-
-
-
-
-
-        await tx.stock.update({
-
-          where: {
-
-            id:
-              stock.id,
-
-          },
-
-          data: {
-
-            currentQty:
-              afterQty,
-
-          },
-
-        });
-
-
-
-
-
-        await tx.stockMovement.create({
-
-          data: {
-
-            stockId:
-              stock.id,
-
-            productId:
-              item.productId,
-
-            userId:
-              input.receivedByUserId,
-
-            movementType:
-              "OUT",
-
-            reason:
-              "SALE",
-
-            quantity:
-              item.qty,
-
-            beforeQty,
-
-            afterQty,
-
-            referenceType:
-              "Bill",
-
-            referenceId:
-              bill.id,
-
-          },
-
-        });
-
-
-      }
-
-
-
-
-
-
 
       await tx.auditLog.create({
 
@@ -439,10 +266,6 @@ export async function receivePayment(
         },
 
       });
-
-
-
-
 
       return await tx.bill.findUnique({
 

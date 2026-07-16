@@ -44,6 +44,7 @@ export async function createBillItem({
   addedByUserId,
   mixers,
 }: CreateBillItemInput) {
+
   // ============================
   // Mixer Signature
   // ============================
@@ -52,12 +53,33 @@ export async function createBillItem({
     mixers.map((m) => m.mixerProductId),
   );
 
+
+  // ============================
+  // Calculate Line Total
+  // ============================
+
+  const productTotal =
+    unitPrice.mul(qty);
+
+
+  const staffFeeTotal =
+    isStaffDrink && staffDrinkFee
+      ? staffDrinkFee.mul(qty)
+      : new Prisma.Decimal(0);
+
+
+  const lineTotal =
+    productTotal.add(staffFeeTotal);
+
+
+
   // ============================
   // Create Bill Item
   // ============================
 
   const billItem = await prisma.billItem.create({
     data: {
+
       billId,
 
       productId,
@@ -68,7 +90,7 @@ export async function createBillItem({
 
       unitPrice,
 
-      lineTotal: unitPrice.mul(qty),
+      lineTotal,
 
       mixerSignature,
 
@@ -79,26 +101,38 @@ export async function createBillItem({
       staffDrinkRecipient,
 
       addedByUserId,
+
     },
   });
+
+
 
   // ============================
   // Create Mixers
   // ============================
 
   if (mixers.length > 0) {
+
     await prisma.billItemMixer.createMany({
+
       data: mixers.map((mixer) => ({
+
         billItemId: billItem.id,
 
         productId,
 
-        mixerProductId: mixer.mixerProductId,
+        mixerProductId:
+          mixer.mixerProductId,
 
-        mixerName: mixer.mixerName,
+        mixerName:
+          mixer.mixerName,
+
       })),
+
     });
+
   }
+
 
   return billItem;
 }

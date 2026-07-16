@@ -67,6 +67,53 @@ export async function createExpense(
 
         });
 
+        const user =
+  await tx.user.findUnique({
+
+    where:{
+      id: input.createdByUserId,
+    },
+
+    select:{
+      id:true,
+      role:true,
+      isActive:true,
+    },
+
+  });
+
+
+
+if(!user){
+
+  throw new Error(
+    "User not found"
+  );
+
+}
+
+
+
+if(!user.isActive){
+
+  throw new Error(
+    "User is inactive"
+  );
+
+}
+
+
+
+if(
+  user.role === "STAFF"
+){
+
+  throw new Error(
+    "Staff cannot create expense"
+  );
+
+}
+
 
 
       if (!category) {
@@ -76,6 +123,22 @@ export async function createExpense(
         );
 
       }
+
+      const amount =
+  new Prisma.Decimal(
+    input.amount
+  );
+
+
+if(
+  amount.lessThanOrEqualTo(0)
+){
+
+  throw new Error(
+    "Expense amount must be greater than zero"
+  );
+
+}
 
 
 
@@ -92,8 +155,8 @@ export async function createExpense(
               input.expenseCategoryId,
 
 
-            amount:
-              input.amount,
+              amount:
+              amount,
 
 
             note:

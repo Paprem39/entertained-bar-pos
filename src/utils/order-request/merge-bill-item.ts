@@ -41,6 +41,7 @@ export async function mergeBillItem({
   addedByUserId,
   mixers,
 }: MergeBillItemInput) {
+
   // ============================
   // Build Mixer Signature
   // ============================
@@ -49,37 +50,87 @@ export async function mergeBillItem({
     mixers.map((m) => m.mixerProductId),
   );
 
+
   // ============================
   // Find Existing Bill Item
   // ============================
 
-  const existingBillItem = await prisma.billItem.findUnique({
-    where: {
-      billId_productId_mixerSignature: {
-        billId,
-        productId,
-        mixerSignature,
+  const existingBillItem =
+    await prisma.billItem.findUnique({
+
+      where: {
+
+        billId_productId_mixerSignature: {
+
+          billId,
+
+          productId,
+
+          mixerSignature,
+
+        },
+
       },
-    },
-  });
+
+    });
+
+
 
   // ============================
   // Merge Qty
   // ============================
 
   if (existingBillItem) {
-    return await prisma.billItem.update({
-      where: {
-        id: existingBillItem.id,
-      },
-      data: {
-        qty: existingBillItem.qty + qty,
 
-        lineTotal:
-          unitPrice.mul(existingBillItem.qty + qty),
+    const newQty =
+      existingBillItem.qty + qty;
+
+
+    const fee =
+      isStaffDrink && staffDrinkFee
+        ? staffDrinkFee.mul(newQty)
+        : new Prisma.Decimal(0);
+
+
+    const productTotal =
+      unitPrice.mul(newQty);
+
+
+    const lineTotal =
+      productTotal.add(fee);
+
+
+
+    return await prisma.billItem.update({
+
+      where: {
+
+        id:
+          existingBillItem.id,
+
       },
+
+      data: {
+
+        qty:
+          newQty,
+
+
+        lineTotal,
+
+
+        isStaffDrink,
+
+        staffDrinkFee,
+
+        staffDrinkRecipient,
+
+      },
+
     });
+
   }
+
 
   // ============================
   // Not Found
