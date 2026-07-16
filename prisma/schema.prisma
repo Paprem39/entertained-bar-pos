@@ -38,6 +38,7 @@ enum OrderRequestStatus {
   PENDING
   APPROVED
   REJECTED
+  CANCELLED
 }
 
 enum StockMovementType {
@@ -269,6 +270,10 @@ model Product {
   stockMovements StockMovement[]
 
   orderRequestItems OrderRequestItem[]
+
+  orderRequestBaseMixers OrderRequestItemMixer[] @relation("OrderRequestBaseProduct")
+
+  orderRequestMixers OrderRequestItemMixer[] @relation("OrderRequestMixerProduct")
 
   billItemBaseMixers BillItemMixer[] @relation("BillItemBaseProduct")
 
@@ -578,16 +583,48 @@ model OrderRequestItem {
 
   note String?
 
-  createdAt DateTime @default(now())
+  isStaffDrink Boolean @default(false)
 
-  updatedAt DateTime @updatedAt
+  staffDrinkFee Decimal? @db.Decimal(10, 2)
+
+  staffDrinkRecipient String?
+
+  mixers OrderRequestItemMixer[]
 
   orderRequest OrderRequest @relation(fields: [orderRequestId], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
   product Product @relation(fields: [productId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
   @@index([orderRequestId])
   @@index([productId])
+}
+
+model OrderRequestItemMixer {
+  id String @id @default(cuid())
+
+  orderRequestItemId String
+
+  productId String
+
+  mixerProductId String
+
+  mixerName String
+
+  orderRequestItem OrderRequestItem @relation(fields: [orderRequestItemId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  product Product @relation("OrderRequestBaseProduct", fields: [productId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  mixerProduct Product @relation("OrderRequestMixerProduct", fields: [mixerProductId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([orderRequestItemId])
+  @@index([productId])
+  @@index([mixerProductId])
 }
 
 model ExpenseCategory {
