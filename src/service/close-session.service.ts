@@ -23,7 +23,7 @@ export async function closeBusinessSession(
 
     const summary = await calculateClosingSummary(
       tx,
-      input.businessSessionId,
+      input.businessSessionId, 
     );
 
     const snapshot = await createClosingSnapshot(
@@ -40,6 +40,26 @@ export async function closeBusinessSession(
         status: BusinessSessionStatus.CLOSED,
         closedAt: new Date(),
         closedByUserId: input.closedByUserId,
+      },
+    });
+
+    await tx.auditLog.create({
+      data: {
+        userId: input.closedByUserId,
+    
+        action: "CLOSE_SESSION",
+    
+        entityType: "BusinessSession",
+    
+        entityId: session.id,
+    
+        targetName:
+          session.businessDate
+            .toISOString()
+            .slice(0, 10),
+    
+        description:
+          "Close business session",
       },
     });
 

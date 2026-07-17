@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
-
+import {decreaseStock, increaseStock,} from "@/service/stock.service";
 
 interface CreateBillInput {
   billName: string;
@@ -15,6 +15,14 @@ interface AddItemToBillInput {
   qty: number;
   mixerProductIds: string[];
   addedByUserId: string;
+}
+
+interface CancelBillInput {
+
+  billId: string;
+
+  cancelledByUserId: string;
+
 }
 
 
@@ -468,7 +476,6 @@ export async function addItemToBill(
 
       if(existingItem){
 
-
         const updated =
           await tx.billItem.update({
 
@@ -490,6 +497,18 @@ export async function addItemToBill(
 
           });
 
+          await decreaseStock(
+            {
+              productId: product.id,
+              quantity: input.qty,
+              reason: "SALE",
+              userId: input.addedByUserId,
+              referenceType: "Bill",
+              referenceId: input.billId,
+            },
+            tx,
+          );
+
 
 
         await updateBillTotal(
@@ -502,11 +521,6 @@ export async function addItemToBill(
         return updated;
 
       }
-
-
-
-
-
 
       const billItem =
         await tx.billItem.create({
@@ -539,9 +553,23 @@ export async function addItemToBill(
 
         });
 
-
-
-
+        await decreaseStock(
+          {
+            productId: product.id,
+  
+            quantity: input.qty,
+  
+            reason: "SALE",
+  
+            userId: input.addedByUserId,
+  
+            referenceType: "Bill",
+  
+            referenceId: input.billId,
+  
+          },
+          tx,
+        );
 
       if(selectedMixers.length > 0){
 
@@ -571,10 +599,6 @@ export async function addItemToBill(
 
       }
 
-
-
-
-
       await updateBillTotal(
         tx,
         input.billId
@@ -589,10 +613,6 @@ export async function addItemToBill(
   );
 
 }
-
-
-
-
 
 export async function getBills(){
 
@@ -620,5 +640,122 @@ export async function getBills(){
     },
 
   });
+
+}
+
+export async function cancelBill(
+  input: CancelBillInput
+) {
+
+  return await prisma.$transaction(
+    async (tx) => {
+
+      const bill =
+        await tx.bill.findUnique({
+
+          where: {
+            id: input.billId,
+          },
+
+          include: {
+            items: true,
+          },
+
+        });
+
+      if (!bill) {
+
+        throw new Error(
+          "Bill not found"
+        );
+
+      }
+
+      if (bill.status !== "OPEN") {
+
+        throw new Error(
+          "Only open bill can be cancelled"
+        );
+
+      }
+
+      for (const item of bill.items) {
+
+        await increaseStock(
+          {
+
+            productId:
+              item.productId,
+
+            quantity:
+              item.qty,
+
+            reason:
+              "RETURN",
+
+            userId:
+              input.cancelledByUserId,
+
+            referenceType:
+              "Bill",
+
+            referenceId:
+              bill.id,
+
+          },
+          tx,
+        );
+
+      }
+
+      await tx.bill.update({
+
+        where: {
+          id: bill.id,
+        },
+
+        data: {
+
+          status: "CANCELLED",
+
+          closedAt:
+            new Date(),
+
+        },
+
+      });
+
+      await tx.auditLog.create({
+
+        data: {
+
+          userId:
+            input.cancelledByUserId,
+
+            action:
+            "UPDATE",
+
+          entityType:
+            "Bill",
+
+          entityId:
+            bill.id,
+
+          targetName:
+            bill.billNumber,
+
+          description:
+            "Cancel bill",
+
+        },
+
+      });
+
+      return {
+        success: true,
+      };
+
+    },
+  );
 
 }

@@ -6,23 +6,16 @@ interface IncreaseStockInput {
   quantity: number;
   reason: "PURCHASE" | "RETURN" | "OTHER";
   userId?: string;
+  referenceType?: string;
+  referenceId?: string;
 }
 
 interface DecreaseStockInput {
   productId: string;
-
   quantity: number;
-
-  reason:
-    | "SALE"
-    | "DAMAGE"
-    | "BORROW"
-    | "OTHER";
-
+  reason: "SALE" | "DAMAGE" | "BORROW" | "OTHER";
   userId?: string;
-
   referenceType?: string;
-
   referenceId?: string;
 }
 
@@ -90,13 +83,14 @@ export async function increaseStock(
 
     const movement = await tx.stockMovement.create({
       data: {
+    
         stockId: stock.id,
     
         productId: input.productId,
     
         userId: input.userId,
     
-        movementType: "OUT",
+        movementType: "IN",
     
         reason: input.reason,
     
@@ -104,7 +98,14 @@ export async function increaseStock(
     
         beforeQty,
     
-        afterQty
+        afterQty,
+    
+        referenceType:
+        input.referenceType,
+
+        referenceId:
+        input.referenceId,
+    
       },
     });
 
@@ -179,13 +180,26 @@ export async function decreaseStock(
     const movement = await tx.stockMovement.create({
       data: {
         stockId: stock.id,
+    
         productId: input.productId,
+    
         userId: input.userId,
+    
         movementType: "OUT",
+    
         reason: input.reason,
+    
         quantity: input.quantity,
+    
         beforeQty,
+    
         afterQty,
+    
+        referenceType:
+          input.referenceType,
+    
+        referenceId:
+          input.referenceId,
       },
     });
 
